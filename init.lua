@@ -1,19 +1,28 @@
-print("nodemcu-airstation - connecting to wifi...")
-wifi.setmode(wifi.STATION)
-wifi.sta.config("SSID", "password")
-wifi.sta.connect()
+print("Connecting to wifi...")
 
+local compileAndRemoveIfNeeded = function(f)
+   if file.open(f) then
+      file.close()
+      print('Compiling:', f)
+      node.compile(f)
+      file.remove(f)
+      collectgarbage()
+   end
+end
+
+compileAndRemoveIfNeeded("setupWifi.lua")
+dofile("setupWifi.lc")
 
 local function waitForWifi(callback)
     local timer = tmr.create()
-    timer:register(2000, tmr.ALARM_SEMI, 
+    timer:register(500, tmr.ALARM_SEMI, 
     function()
         if wifi.sta.getip()==nil then
-            print("nodemcu-airstation - waiting for an IP address!") 
+            print("Waiting for an IP address!") 
             timer:start()
         else
             timer=nil
-            print("nodemcu-airstation - got an IP address: "..wifi.sta.getip())
+            print("Got an IP address: "..wifi.sta.getip())
             collectgarbage()
             callback()
         end             
@@ -21,15 +30,6 @@ local function waitForWifi(callback)
     timer:start()
 end
 
-local compileAndRemoveIfNeeded = function(f)
-   if file.open(f) then
-      file.close()
-      print('nodemcu-airstation - compiling:', f)
-      node.compile(f)
-      file.remove(f)
-      collectgarbage()
-   end
-end
 
 function createResponse(status, payload, contentType)
     local buf = "HTTP/1.0 "..status.."\r\n"
@@ -43,9 +43,13 @@ function createResponse(status, payload, contentType)
 end
 
 local function startServer()
-    print("nodemcu-airstation - starting http server on port 80")
-    local srv=net.createServer(net.TCP)
-    srv:listen(80,function(conn)
+    print("Starting http server on port 80")
+    if not(httpServer==nil) then
+        print("Closing previously lanched server")
+        httpServer:close()
+    end
+    httpServer=net.createServer(net.TCP)
+    httpServer:listen(80,function(conn)
         conn:on("receive", function(client,request)
             local _, _, method, path, vars = string.find(request, "([A-Z]+) (.+)?(.+) HTTP");
             if(method == nil)then
@@ -53,21 +57,25 @@ local function startServer()
             end
             local _GET = {}
             if (vars ~= nil)then
-                for k, v in string.gmatch(vars, "(%w+)=(%w+)&*") do
+                for k, v in string.gmatch(vars, "([^&=]+)=([^&]+)&*") do
                     _GET[k] = v
                 end
             end
 
-            print("nodemcu-airstation - received HTTP request: ")
-            print("nodemcu-airstation - method: "..method)
-            print("nodemcu-airstation - path: "..path)
+            local msg = "Received HTTP request: "..method.." "..path
+            log(msg)
 
             local response = nil
 
-            if(path == "/load-firmware")
+            if(path == "/load-firmware") then
                 -- todo ;)
+                response = loadFirmware(_GET)
             else
-                response = appHandler(path, _GET)
+                if not(appHandler==nil) then
+                    response = appHandler(path, _GET)
+                else
+                    response = createResponse("500 Internal Server Error", "No appHandler global defined", "text/plain")
+                end
             end
 
 
@@ -77,18 +85,42 @@ local function startServer()
                 end);
         end)
     end)
-    print("nodemcu-airstation - http server started on port 80")
+    print("HTTP server started on port 80")
 end
 
-waitForWifi(function()
-    print("nodemcu-airstation - connected to wifi, starting")
---    compileAndRemoveIfNeeded('log.lua') 
+local function waitIfExcBoot(fun)
+    local _, reset_reason = node.bootreason()
+    if(reset_reason == 3)then
+        print("Booted on Software Exception, waiting 10s before each boot step")
+        local timer = tmr.create()
+        timer:register(10000, tmr.ALARM_SEMI, 
+            function()
+                fun()
+            end)
+    timer:start()
+else
+    fun()
+end
 
-    dofile("log.lua")
+end
+
+local function boot()
+    compileAndRemoveIfNeeded("http.lua")
+    dofile("http.lc")
+--    compileAndRemoveIfNeeded('loadFirmware.lua') 
+    dofile("loadFirmware.lua")
+    compileAndRemoveIfNeeded('log.lua') 
+    dofile("log.lc")
     initLogSystem()
-
---    startServer()
-
+    startServer()
 --    compileAndRemoveIfNeeded('app.lua') 
 --    dofile("app.lc")
+end
+
+waitIfExcBoot(function()
+    waitForWifi(function()
+        print("Connected to wifi, starting")
+        waitIfExcBoot(boot)
+    end)
 end)
+
