@@ -9,13 +9,13 @@ local function doHttpGet()
     http.get(url, 
         nil, 
         function(s,b)
+            if callback then
+                callback(s,b)
+            end
             if #http_requests == 0 then
                 http_executing = false
             else
                 node.task.post(doHttpGet)
-            end
-            if callback then
-                callback(s,b)
             end
         end)
 end
