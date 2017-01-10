@@ -43,9 +43,9 @@ function createResponse(status, payload, contentType)
 end
 
 local function startServer()
-    print("Starting http server on port 80")
+    log("Starting http server on port 80")
     if not(httpServer==nil) then
-        print("Closing previously lanched server")
+        log("Closing previously lanched server")
         httpServer:close()
     end
     httpServer=net.createServer(net.TCP)
@@ -85,7 +85,7 @@ local function startServer()
                 end);
         end)
     end)
-    print("HTTP server started on port 80")
+    log("HTTP server started on port 80")
 end
 
 local function waitIfExcBoot(fun)
@@ -107,14 +107,15 @@ end
 local function boot()
     compileAndRemoveIfNeeded("http.lua")
     dofile("http.lc")
-    compileAndRemoveIfNeeded('loadFirmware.lua') 
-    dofile("loadFirmware.lc")
     compileAndRemoveIfNeeded('log.lua') 
     dofile("log.lc")
+    compileAndRemoveIfNeeded('loadFirmware.lua') 
+    dofile("loadFirmware.lc")
     initLogSystem()
     startServer()
     waitIfExcBoot(function()
         if file.exists("app.lua") then
+            log("Loading app.lua")
             dofile("app.lua")
         end
     end)
