@@ -8,6 +8,12 @@ function loadFirmware(_GET)
                 return
             end
             log("Writing app.lua to flash...")
+            file.remove("app.lua")
+            file.open("app.lua", "w+")
+            file.write(response)
+            file.close()
+            dofile("app.lua")
+            log("Firmware loaded  successfully")
         end)
         return createResponse("200 OK", "url: "..url, "text/plain")
     else

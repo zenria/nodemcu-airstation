@@ -107,14 +107,17 @@ end
 local function boot()
     compileAndRemoveIfNeeded("http.lua")
     dofile("http.lc")
---    compileAndRemoveIfNeeded('loadFirmware.lua') 
-    dofile("loadFirmware.lua")
+    compileAndRemoveIfNeeded('loadFirmware.lua') 
+    dofile("loadFirmware.lc")
     compileAndRemoveIfNeeded('log.lua') 
     dofile("log.lc")
     initLogSystem()
     startServer()
---    compileAndRemoveIfNeeded('app.lua') 
---    dofile("app.lc")
+    waitIfExcBoot(function()
+        if file.exists("app.lua") then
+            dofile("app.lua")
+        end
+    end)
 end
 
 waitIfExcBoot(function()
