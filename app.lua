@@ -1,17 +1,16 @@
 local dhtTemperature = nil
 local dhtHumidity = nil
-local dhtPin = 4
+local dhtPin = 5
 
 function readDht()    
     status,temp,humi,temp_decimal,humi_decimal = dht.read(dhtPin)
     if( status == dht.OK ) then
         dhtTemperature = temp.."."..temp_decimal
         dhtHumidity = humi.."."..humi_decimal
-        print("nodemcu-airstation - dht temperature: "..dhtTemperature.." ".."humidity: "..dhtHumidity.."%")
     elseif( status == dht.ERROR_CHECKSUM ) then
-        print( "nodemcu-airstation - dht Checksum error." );
+        log( "nodemcu-airstation - dht Checksum error." );
     elseif( status == dht.ERROR_TIMEOUT ) then
-        print( "nodemcu-airstation - dht Time out." );
+        log( "nodemcu-airstation - dht Time out." );
     end
     return temp,humi
 end
@@ -35,12 +34,23 @@ function appHandler(path, params)
     return response
 end
 
+local function logStatus()
+    log("dhtTemperature:"..dhtTemperature)
+    log("dhtHumidity:"..dhtHumidity)
+    log("heapFree:"..node.heap())
+end
+
 local function app() 
     readDht()
     local timer = tmr.create()
+    local n = 1
     timer:register(5000, tmr.ALARM_SEMI, function()
-      readDht()
-      timer:start()
+        readDht()
+        timer:start()
+        n = n + 1
+        if n % 12 == 0 then
+            logStatus()
+        end
     end)
     timer:start()
 end
