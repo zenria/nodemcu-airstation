@@ -22,12 +22,15 @@ function log(message)
         end
         bufferizedLogs[ #bufferizedLogs + 1 ] = message
     end
-    httpGet("http://nodemcu-logger/?log="..url_encode(message))
+    httpGet("http://"..loggerHost.."/?log="..url_encode(message))
 end
 
 function initLogSystem()
+    if(loggerHost == nil) then
+        return
+    end
     local con = net.createConnection(net.TCP, 0)
-    con:dns("nodemcu-logger", function(c, ip)
+    con:dns(loggerHost, function(c, ip)
         if not(ip == nil) then 
             logReady = true
             local _, reset_reason = node.bootreason()
