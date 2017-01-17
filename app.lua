@@ -35,6 +35,9 @@ function appHandler(path, params)
         else
             response = createResponse(500, "Cannot encode json", "text/plain")
         end
+    elseif(path == "/reboot")then
+        node.reboot()
+        response = createResponse("200 OK", "Reboot", "text/plain")
     else
         response = createResponse("404 NOT FOUND", "Not found", "text/plain")
     end
