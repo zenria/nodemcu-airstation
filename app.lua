@@ -37,7 +37,6 @@ function appHandler(path, params)
         end
     elseif(path == "/reboot")then
         node.reboot()
-        response = createResponse("200 OK", "Reboot", "text/plain")
     else
         response = createResponse("404 NOT FOUND", "Not found", "text/plain")
     end
