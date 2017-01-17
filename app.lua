@@ -4,8 +4,15 @@ local dhtPin = 5
 
 function readDht()    
     status,temp,humi,temp_decimal,humi_decimal = dht.read(dhtPin)
+    local sign=""
+    if(temp_decimal<0) then
+        if(temp>=0)then
+            sign="-"
+        end
+        temp_decimal = 0 - temp_decimal
+    end
     if( status == dht.OK ) then
-        dhtTemperature = temp.."."..temp_decimal
+        dhtTemperature = sign..temp.."."..temp_decimal
         dhtHumidity = humi.."."..humi_decimal
     elseif( status == dht.ERROR_CHECKSUM ) then
         log( "nodemcu-airstation - dht Checksum error." );
@@ -35,8 +42,10 @@ function appHandler(path, params)
 end
 
 local function logStatus()
-    log("dhtTemperature:"..dhtTemperature)
-    log("dhtHumidity:"..dhtHumidity)
+    if not(dhtTemperature==nil) then
+        log("dhtTemperature:"..dhtTemperature)
+        log("dhtHumidity:"..dhtHumidity)
+    end
     log("heapFree:"..node.heap())
 end
 
