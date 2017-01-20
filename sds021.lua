@@ -97,7 +97,11 @@ local function readData(buffer)
 	log("TODO: handle reply")
 end
 
-
+local function setupSerial()
+	uart.alt(1)
+	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
+	uart.on("data", string.char(MSG_Tail), readData, 0)
+end
 
 local function makeMessage(action, set, address)
 
