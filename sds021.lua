@@ -23,8 +23,13 @@ if log == nil then
 	log = print
 end 
 
+if bit == nil then
+	-- not un eLua env, emulate bit module
+	bit = require "bit"
+end
+
 local function to16BitsInteger(h,l)
-	return (h << 8) + l
+	return bit.lshift(h, 8) + l
 end
 
 local function checksum(buffer, start_idx, end_idx)
@@ -33,7 +38,7 @@ local function checksum(buffer, start_idx, end_idx)
 	for i = start_idx, end_idx do
 		chk = chk + buffer:byte(i);
 	end
-	return chk & 0xFF
+	return bit.band(chk, 0xFF)
 end
 
 local function validChecksum(buffer)
@@ -97,7 +102,7 @@ local function readData(buffer)
 	log("TODO: handle reply")
 end
 
-local function setupSerial()
+function setupSerial()
 	uart.alt(1)
 	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
 	uart.on("data", string.char(MSG_Tail), readData, 0)
@@ -121,8 +126,8 @@ local function makeMessage(action, set, address)
 		0, -- 12
 		0, -- 13
 		0, -- 14
-		address >> 8, -- 15
-		address & 0xFF -- 16
+		bit.rshift(address, 8), -- 15
+		bit.band(address, 0xFF) -- 16
 		)
 	ret = ret..checksum(ret, 3, 17)
 	ret = ret..MSG_Tail
