@@ -58,7 +58,9 @@ local function divBy10ToString(n)
 	local dec = n % 10
 	local round = n - dec
 	local int = round / 10
-	int = string.format("%.0f", int)
+	if not(math==nil) then
+		int = math.floor(int)
+	end
 	return int.."."..dec
 end
 
@@ -108,29 +110,47 @@ function setupSerial()
 	uart.on("data", string.char(MSG_Tail), readData, 0)
 end
 
-local function makeMessage(action, set, address)
+local function sendMessage(msg)
+	uart.write(packMessage(msg))
+end
 
-	local ret = string.char(
-		MSG_Head, -- 0
-		CMD_Command, -- 1
-		action, -- 2
-		set, -- 3
-		0, -- 4
-		0, -- 5
-		0, -- 6
-		0, -- 7
-		0, -- 8
-		0, -- 9
-		0, -- 10
-		0, -- 11
-		0, -- 12
-		0, -- 13
-		0, -- 14
-		bit.rshift(address, 8), -- 15
-		bit.band(address, 0xFF) -- 16
-		)
-	ret = ret..checksum(ret, 3, 17)
-	ret = ret..MSG_Tail
+
+
+local function makeMessage(action, set, address)
+	local setInt = 0x00
+	if set then
+		setInt = 0x01
+	end
+	local ret = {
+			MSG_Head, -- 0
+			CMD_Command, -- 1
+			action, -- 2
+			setInt , -- 3
+			0, -- 4
+			0, -- 5
+			0, -- 6
+			0, -- 7
+			0, -- 8
+			0, -- 9
+			0, -- 10
+			0, -- 11
+			0, -- 12
+			0, -- 13
+			0, -- 14
+			bit.rshift(address, 8), -- 15
+			bit.band(address, 0xFF) -- 16
+			}
+	return ret
+end
+
+local function packMessage(msg)
+	local ret=""
+	local i
+	for i=1,#msg do
+		ret = ret..string.char(msg[i])
+	end
+	ret = ret..string.char(checksum(ret, 3, 17))
+	ret = ret..string.char(MSG_Tail)
 	return ret
 end
 
@@ -141,3 +161,5 @@ readData(testBuffer2)
 --print("chk: "..string.format("%02X", checksum(testBuffer2,3,8)))
 
 print(string.format("%04X", ID))
+
+print(toHexString(packMessage(makeMessage(ACTION_Id, true, 0x1234))))
