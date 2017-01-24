@@ -136,6 +136,7 @@ end
 
 
 local function makeMessage(action, set, address)
+	address = 0xFFFF
 	local setInt = 0x00
 	if set then
 		setInt = 0x01
@@ -238,9 +239,14 @@ function query()
 	sendMessage(makeQueryMessage())
 end
 
+local function commandOK()
+	return createResponse(200, "Command OK", "text/plain")
+end
+
+
 function appHandler(path, params)
     local response = nil
-    if ID == nil then
+    if (path == "/" and ID == nil) then
         response = createResponse("503 NOT AVAILABLE", "SDS021 not booted", "text/plain")
     elseif(path == "/")then
         jsonValue = {
@@ -255,16 +261,25 @@ function appHandler(path, params)
         end
     elseif(path == "/go-passive") then
         setPassiveMode(true)
-        response = createResponse(200, "Command OK", "text/plain")
+        response = commandOK()
     elseif(path == "/go-active") then
         setPassiveMode(false)
-        response = createResponse(200, "Command OK", "text/plain")
+        response = commandOK()
     elseif(path == "/sleep") then
         setAwake(false)
-        response = createResponse(200, "Command OK", "text/plain")
+        response = commandOK()
     elseif(path == "/wake-up") then
         setAwake(true)
-        response = createResponse(200, "Command OK", "text/plain")
+        response = commandOK()
+    elseif(path == "/set-interval-0") then
+        setInterval(0)
+        response = commandOK()
+    elseif(path == "/set-interval-1") then
+        setInterval(1)
+        response = commandOK()
+    elseif(path == "/set-interval-5") then
+        setInterval(5)
+        response = commandOK()
     elseif(path == "/reboot") then
         node.reboot()
     else
@@ -273,27 +288,4 @@ function appHandler(path, params)
     return response
 end
 
-
---readData(testBuffer)
-readData(testBuffer2)
-
---print("chk: "..string.format("%02X", checksum(testBuffer,2,8)))
---print("chk: "..string.format("%02X", checksum(testBuffer2,3,8)))
-
---print(string.format("%04X", ID))
-
-
---print("query")
---print(toHexString(packMessage(makeQueryMessage())))
---print("setInterval")
---print(toHexString(packMessage(makeSetIntervalMessage(5))))
---print(toHexString(packMessage(makeSetIntervalMessage(10))))
---print("setAwake")
---print(toHexString(packMessage(makeSetAwakeMessage(true))))
---print(toHexString(packMessage(makeSetAwakeMessage(false))))
---print("setPassiveMode")
-print(toHexString(packMessage(makeSetPassiveModeMessage(true))))
-print(toHexString(packMessage(makeSetPassiveModeMessage(false))))
---print("setId")
---print(toHexString(packMessage(makeSetIdMessage(0x1234))))
 
