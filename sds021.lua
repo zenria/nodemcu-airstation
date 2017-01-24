@@ -262,6 +262,9 @@ function appHandler(path, params)
     elseif(path == "/go-passive") then
         setPassiveMode(true)
         response = commandOK()
+    elseif(path == "/query") then
+        query()
+        response = commandOK()
     elseif(path == "/go-active") then
         setPassiveMode(false)
         response = commandOK()
