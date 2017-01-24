@@ -6,9 +6,9 @@ local CMD_Reply = 0xC5
 local ACTION_Mode = 0x2
 local ACTION_Query = 0x4
 local ACTION_Id = 0x5
-local State = 0x6
+local ACTION_State = 0x6
 local Version = 0x7
-local Interval = 0x8
+local ACTION_Interval = 0x8
 
 local InputLength = 10
 
@@ -67,8 +67,12 @@ end
 local function handleData(dataBuffer)
 	PM25 = divBy10ToString(to16BitsInteger(dataBuffer:byte(4), dataBuffer:byte(3)))
 	PM10 = divBy10ToString(to16BitsInteger(dataBuffer:byte(6), dataBuffer:byte(5)))
-	log("Read data: PM2.5="..PM25.." PM10="..PM10)
+	log("Read data: PM2.5= "..PM25.." PM10= "..PM10)
 end
+
+local function handleReply(dataBuffer)
+
+end	
 
 local function readData(buffer)
 	log("Parsing "..toHexString(buffer))
@@ -97,11 +101,16 @@ local function readData(buffer)
 	end
 	-- update id
 	ID = to16BitsInteger(buffer:byte(8), buffer:byte(9))
-	if dataBuffer:byte(2)==CMD_Data then
+	local command = dataBuffer:byte(2)
+	if command==CMD_Data then
 		handleData(dataBuffer)
 		return
 	end
-	log("TODO: handle reply")
+	if command == CMD_Reply then
+		handleReply(dataBuffer)
+		return
+	end
+	log("Invalid command")
 end
 
 function setupSerial()
@@ -113,7 +122,6 @@ end
 local function sendMessage(msg)
 	uart.write(packMessage(msg))
 end
-
 
 
 local function makeMessage(action, set, address)
@@ -154,12 +162,64 @@ local function packMessage(msg)
 	return ret
 end
 
-readData(testBuffer)
-readData(testBuffer2)
+local function makeSetIdMessage(newId)
+	local ret = makeMessage(ACTION_Id, true, ID)
+	ret[14] = bit.rshift(newId, 8)
+	ret[15] = bit.band(newId, 0xFF)
+	return ret
+end
+
+local function makeSetPassiveModeMessage(passive)
+	local ret = makeMessage(ACTION_Mode, true, ID)
+	if passive then
+		ret[5] = 0x01
+	end
+	return ret
+end
+
+local function makeSetAwakeMessage(working)
+	local ret = makeMessage(ACTION_State, true, ID)
+	if working then
+		ret[5] = 0x01
+	end
+	return ret
+end
+
+local function makeSetIntervalMessage(minutes)
+	if(minutes > 30) then
+		minutes = 30
+	end
+	local ret = makeMessage(ACTION_Interval, true, ID)
+	ret[5] = minutes;
+	return ret;
+
+end
+
+local function makeQueryMessage()
+	local ret = makeMessage(ACTION_Query, false, ID)
+	return ret;
+end
+
+--readData(testBuffer)
+--readData(testBuffer2)
 
 --print("chk: "..string.format("%02X", checksum(testBuffer,2,8)))
 --print("chk: "..string.format("%02X", checksum(testBuffer2,3,8)))
 
 print(string.format("%04X", ID))
 
-print(toHexString(packMessage(makeMessage(ACTION_Id, true, 0x1234))))
+
+--print("query")
+--print(toHexString(packMessage(makeQueryMessage())))
+--print("setInterval")
+--print(toHexString(packMessage(makeSetIntervalMessage(5))))
+--print(toHexString(packMessage(makeSetIntervalMessage(10))))
+--print("setAwake")
+--print(toHexString(packMessage(makeSetAwakeMessage(true))))
+--print(toHexString(packMessage(makeSetAwakeMessage(false))))
+--print("setPassiveMode")
+--print(toHexString(packMessage(makeSetPassiveModeMessage(true))))
+--print(toHexString(packMessage(makeSetPassiveModeMessage(false))))
+--print("setId")
+--print(toHexString(packMessage(makeSetIdMessage(0x1234))))
+
