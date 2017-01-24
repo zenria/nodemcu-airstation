@@ -71,11 +71,11 @@ local function handleData(dataBuffer)
 end
 
 local function handleReply(dataBuffer)
-
+	log("Reply: "..toHexString(dataBuffer))
 end	
 
 local function readData(buffer)
-	log("Parsing "..toHexString(buffer))
+	
 	local start = 0
 	local i
 	for i=1,#buffer do
@@ -110,18 +110,29 @@ local function readData(buffer)
 		handleReply(dataBuffer)
 		return
 	end
-	log("Invalid command")
+	log("Invalid command "..toHexString(buffer))
 end
 
 function setupSerial()
 	uart.alt(1)
 	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
 	uart.on("data", string.char(MSG_Tail), readData, 0)
+	log("UART set up, waiting SDS021 boot")
+    local timer = tmr.create()
+    timer:register(10000, tmr.ALARM_SEMI, 
+            function()
+                if ID == nil then
+                	timer:start()
+                else
+                	log("SDS021 booted")
+                end
+            end
+    )
+    timer:start()
+
 end
 
-local function sendMessage(msg)
-	uart.write(packMessage(msg))
-end
+
 
 
 local function makeMessage(action, set, address)
@@ -169,6 +180,7 @@ local function makeSetIdMessage(newId)
 	return ret
 end
 
+
 local function makeSetPassiveModeMessage(passive)
 	local ret = makeMessage(ACTION_Mode, true, ID)
 	if passive then
@@ -195,18 +207,80 @@ local function makeSetIntervalMessage(minutes)
 
 end
 
+local function sendMessage(msg)
+    --log("Want to send. "..toHexString(packMessage(msg)))
+    uart.write(0,packMessage(msg))
+end
+
+
 local function makeQueryMessage()
 	local ret = makeMessage(ACTION_Query, false, ID)
 	return ret;
 end
 
+function setId(newId)
+	sendMessage(makeSetIdMessage(newId))
+end
+
+function setPassiveMode(passive)
+	sendMessage(makeSetPassiveModeMessage(passive))
+end
+
+function setAwake(working)
+	sendMessage(makeSetAwakeMessage(working))
+end
+
+function setInterval(interval)
+	sendMessage(makeSetIntervalMessage(interval))
+end
+
+function query()
+	sendMessage(makeQueryMessage())
+end
+
+function appHandler(path, params)
+    local response = nil
+    if ID == nil then
+        response = createResponse("503 NOT AVAILABLE", "SDS021 not booted", "text/plain")
+    elseif(path == "/")then
+        jsonValue = {
+            PM25 = PM25,
+            PM10 = PM10
+        }
+        json = cjson.encode(jsonValue)
+        if(json)then
+            response = createResponse(200, json, "application/json")
+        else
+            response = createResponse(500, "Cannot encode json", "text/plain")
+        end
+    elseif(path == "/go-passive") then
+        setPassiveMode(true)
+        response = createResponse(200, "Command OK", "text/plain")
+    elseif(path == "/go-active") then
+        setPassiveMode(false)
+        response = createResponse(200, "Command OK", "text/plain")
+    elseif(path == "/sleep") then
+        setAwake(false)
+        response = createResponse(200, "Command OK", "text/plain")
+    elseif(path == "/wake-up") then
+        setAwake(true)
+        response = createResponse(200, "Command OK", "text/plain")
+    elseif(path == "/reboot") then
+        node.reboot()
+    else
+        response = createResponse("404 NOT FOUND", "Not found", "text/plain")
+    end
+    return response
+end
+
+
 --readData(testBuffer)
---readData(testBuffer2)
+readData(testBuffer2)
 
 --print("chk: "..string.format("%02X", checksum(testBuffer,2,8)))
 --print("chk: "..string.format("%02X", checksum(testBuffer2,3,8)))
 
-print(string.format("%04X", ID))
+--print(string.format("%04X", ID))
 
 
 --print("query")
@@ -218,8 +292,8 @@ print(string.format("%04X", ID))
 --print(toHexString(packMessage(makeSetAwakeMessage(true))))
 --print(toHexString(packMessage(makeSetAwakeMessage(false))))
 --print("setPassiveMode")
---print(toHexString(packMessage(makeSetPassiveModeMessage(true))))
---print(toHexString(packMessage(makeSetPassiveModeMessage(false))))
+print(toHexString(packMessage(makeSetPassiveModeMessage(true))))
+print(toHexString(packMessage(makeSetPassiveModeMessage(false))))
 --print("setId")
 --print(toHexString(packMessage(makeSetIdMessage(0x1234))))
 
