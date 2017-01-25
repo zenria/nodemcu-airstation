@@ -113,27 +113,39 @@ local function readData(buffer)
 	log("Invalid command "..toHexString(buffer))
 end
 
+local function wait(millis, callback)
+	local timer = tmr.create()
+	timer:register(millis, tmr.ALARM_SEMI, function()
+		callback(timer)
+	end)
+	timer:start()
+end
+
+
 function setupSerial()
 	uart.alt(1)
 	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
 	uart.on("data", string.char(MSG_Tail), readData, 0)
 	log("UART set up, waiting SDS021 boot")
-    local timer = tmr.create()
-    timer:register(10000, tmr.ALARM_SEMI, 
-            function()
-                if ID == nil then
-                	timer:start()
-                else
-                	log("SDS021 booted")
-                end
-            end
-    )
-    timer:start()
-
+	wait(10000, function(timer)
+        if ID == nil then
+        	timer:start()
+        else
+        	log("SDS021 booted")
+        end
+	end)
 end
 
+function testWait()
+    wait(10000, function()
+        print("coucou 10s")
+    end)
 
-
+    wait(1000, function(t)
+        print("coucou 1s")
+        t:start()
+    end)
+end
 
 local function makeMessage(action, set, address)
 	address = 0xFFFF
@@ -205,7 +217,6 @@ local function makeSetIntervalMessage(minutes)
 	local ret = makeMessage(ACTION_Interval, true, ID)
 	ret[5] = minutes;
 	return ret;
-
 end
 
 local function sendMessage(msg)
@@ -292,3 +303,25 @@ function appHandler(path, params)
 end
 
 
+function runMode()
+	wait(500, function()setPassiveMode(false)end)
+	wait(10000, function()			
+		log("Sleep")
+ 		setAwake(false) 
+	end)
+	wait(120000, function(gTimer)
+		log("Wake up")
+		setAwake(true)
+		wait(20000, function()
+			log("Sleep")
+			setAwake(false)
+			gTimer:start()
+		end)
+	end)
+end
+
+function app()
+	setupSerial()
+	runMode()
+end
+app()
