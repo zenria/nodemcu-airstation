@@ -14,10 +14,10 @@ local InputLength = 10
 
 local PM25 = nil
 local PM10 = nil
+local _PM25 = nil
+local _PM10 = nil
 local ID = nil
 
-local testBuffer = string.char(0xAA,0xC0,0x73,0x00,0x9E,0x00,0xA9,0xEA,0xA4,0xAB)
-local testBuffer2 = string.char(0xAA,0xC0,0x86,0x00,0x09,0x01,0xA9,0xEA,0x23,0xAB)
 
 if log == nil then
 	log = print
@@ -65,9 +65,9 @@ local function divBy10ToString(n)
 end
 
 local function handleData(dataBuffer)
-	PM25 = divBy10ToString(to16BitsInteger(dataBuffer:byte(4), dataBuffer:byte(3)))
-	PM10 = divBy10ToString(to16BitsInteger(dataBuffer:byte(6), dataBuffer:byte(5)))
-	log("Read data: PM2.5= "..PM25.." PM10= "..PM10)
+	_PM25 = divBy10ToString(to16BitsInteger(dataBuffer:byte(4), dataBuffer:byte(3)))
+	_PM10 = divBy10ToString(to16BitsInteger(dataBuffer:byte(6), dataBuffer:byte(5)))
+	log("Read data: PM2.5= ".._PM25.." PM10= ".._PM10..)
 end
 
 local function handleReply(dataBuffer)
@@ -126,25 +126,7 @@ function setupSerial()
 	uart.alt(1)
 	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
 	uart.on("data", string.char(MSG_Tail), readData, 0)
-	log("UART set up, waiting SDS021 boot")
-	wait(10000, function(timer)
-        if ID == nil then
-        	timer:start()
-        else
-        	log("SDS021 booted")
-        end
-	end)
-end
-
-function testWait()
-    wait(10000, function()
-        print("coucou 10s")
-    end)
-
-    wait(1000, function(t)
-        print("coucou 1s")
-        t:start()
-    end)
+	log("UART set up")
 end
 
 local function makeMessage(action, set, address)
@@ -257,7 +239,7 @@ end
 
 function appHandler(path, params)
     local response = nil
-    if (path == "/" and ID == nil) then
+    if (path == "/" and PM25 == nil) then
         response = createResponse("503 NOT AVAILABLE", "SDS021 not booted", "text/plain")
     elseif(path == "/")then
         jsonValue = {
@@ -270,30 +252,6 @@ function appHandler(path, params)
         else
             response = createResponse(500, "Cannot encode json", "text/plain")
         end
-    elseif(path == "/go-passive") then
-        setPassiveMode(true)
-        response = commandOK()
-    elseif(path == "/query") then
-        query()
-        response = commandOK()
-    elseif(path == "/go-active") then
-        setPassiveMode(false)
-        response = commandOK()
-    elseif(path == "/sleep") then
-        setAwake(false)
-        response = commandOK()
-    elseif(path == "/wake-up") then
-        setAwake(true)
-        response = commandOK()
-    elseif(path == "/set-interval-0") then
-        setInterval(0)
-        response = commandOK()
-    elseif(path == "/set-interval-1") then
-        setInterval(1)
-        response = commandOK()
-    elseif(path == "/set-interval-5") then
-        setInterval(5)
-        response = commandOK()
     elseif(path == "/reboot") then
         node.reboot()
     else
@@ -307,21 +265,27 @@ function runMode()
 	wait(500, function()setPassiveMode(false)end)
 	wait(10000, function()			
 		log("Sleep")
- 		setAwake(false) 
+ 		setAwake(false)
+ 		PM25 = _PM25
+ 		PM10 = _PM10
 	end)
 	wait(120000, function(gTimer)
 		log("Wake up")
 		setAwake(true)
-		wait(20000, function()
+		wait(30000, function()
+	 		PM25 = _PM25
+	 		PM10 = _PM10
 			log("Sleep")
 			setAwake(false)
 			gTimer:start()
+			collectgarbage()
+			log("heapFree:"..node.heap())
 		end)
 	end)
 end
 
 function app()
-	setupSerial()
+    setupSerial()
 	runMode()
 end
 app()
