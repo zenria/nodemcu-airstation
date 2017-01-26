@@ -64,10 +64,15 @@ local function divBy10ToString(n)
 	return int.."."..dec
 end
 
+local i = 0
+
 local function handleData(dataBuffer)
 	_PM25 = divBy10ToString(to16BitsInteger(dataBuffer:byte(4), dataBuffer:byte(3)))
 	_PM10 = divBy10ToString(to16BitsInteger(dataBuffer:byte(6), dataBuffer:byte(5)))
-	log("Read data: PM2.5= ".._PM25.." PM10= ".._PM10..)
+	if (i%5) == 0 then 
+		log("Read data: PM2.5= ".._PM25.." PM10= ".._PM10.."heapFree:"..node.heap())
+	end
+	i = i + 1
 end
 
 local function handleReply(dataBuffer)
@@ -168,20 +173,10 @@ local function packMessage(msg)
 	return ret
 end
 
-local function makeSetIdMessage(newId)
-	local ret = makeMessage(ACTION_Id, true, ID)
-	ret[14] = bit.rshift(newId, 8)
-	ret[15] = bit.band(newId, 0xFF)
-	return ret
-end
 
-
-local function makeSetPassiveModeMessage(passive)
-	local ret = makeMessage(ACTION_Mode, true, ID)
-	if passive then
-		ret[5] = 0x01
-	end
-	return ret
+local function sendMessage(msg)
+    --log("Want to send. "..toHexString(packMessage(msg)))
+    uart.write(0,packMessage(msg))
 end
 
 local function makeSetAwakeMessage(working)
@@ -192,45 +187,10 @@ local function makeSetAwakeMessage(working)
 	return ret
 end
 
-local function makeSetIntervalMessage(minutes)
-	if(minutes > 30) then
-		minutes = 30
-	end
-	local ret = makeMessage(ACTION_Interval, true, ID)
-	ret[5] = minutes;
-	return ret;
-end
-
-local function sendMessage(msg)
-    --log("Want to send. "..toHexString(packMessage(msg)))
-    uart.write(0,packMessage(msg))
-end
-
-
-local function makeQueryMessage()
-	local ret = makeMessage(ACTION_Query, false, ID)
-	return ret;
-end
-
-function setId(newId)
-	sendMessage(makeSetIdMessage(newId))
-end
-
-function setPassiveMode(passive)
-	sendMessage(makeSetPassiveModeMessage(passive))
-end
-
 function setAwake(working)
 	sendMessage(makeSetAwakeMessage(working))
 end
 
-function setInterval(interval)
-	sendMessage(makeSetIntervalMessage(interval))
-end
-
-function query()
-	sendMessage(makeQueryMessage())
-end
 
 local function commandOK()
 	return createResponse(200, "Command OK", "text/plain")
@@ -262,14 +222,13 @@ end
 
 
 function runMode()
-	wait(500, function()setPassiveMode(false)end)
 	wait(10000, function()			
 		log("Sleep")
  		setAwake(false)
  		PM25 = _PM25
  		PM10 = _PM10
 	end)
-	wait(120000, function(gTimer)
+	wait(240000, function(gTimer)
 		log("Wake up")
 		setAwake(true)
 		wait(30000, function()
@@ -279,7 +238,6 @@ function runMode()
 			setAwake(false)
 			gTimer:start()
 			collectgarbage()
-			log("heapFree:"..node.heap())
 		end)
 	end)
 end
