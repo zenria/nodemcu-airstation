@@ -31,63 +31,6 @@ local function waitForWifi(callback)
 end
 
 
-function createResponse(status, payload, contentType)
-    local buf = "HTTP/1.0 "..status.."\r\n"
-    buf = buf.."Server: nodemcu-airstation\r\n"
-    buf = buf.."Content-Type: "..contentType.."\r\n"
-    local contentLength = string.len(payload)
-    buf = buf.."Content-Length: "..contentLength.."\r\n"
-    buf = buf.."\r\n"
-    buf = buf..payload
-    return buf;
-end
-
-local function startServer()
-    log("Starting http server on port 80")
-    if not(httpServer==nil) then
-        log("Closing previously lanched server")
-        httpServer:close()
-    end
-    httpServer=net.createServer(net.TCP)
-    httpServer:listen(80,function(conn)
-        conn:on("receive", function(client,request)
-            local _, _, method, path, vars = string.find(request, "([A-Z]+) (.+)?(.+) HTTP");
-            if(method == nil)then
-                _, _, method, path = string.find(request, "([A-Z]+) (.+) HTTP");
-            end
-            local _GET = {}
-            if (vars ~= nil)then
-                for k, v in string.gmatch(vars, "([^&=]+)=([^&]+)&*") do
-                    _GET[k] = v
-                end
-            end
-
-            local msg = "Received HTTP request: "..method.." "..path
-            log(msg)
-
-            local response = nil
-
-            if(path == "/load-firmware") then
-                -- todo ;)
-                response = loadFirmware(_GET)
-            else
-                if not(appHandler==nil) then
-                    response = appHandler(path, _GET)
-                else
-                    response = createResponse("500 Internal Server Error", "No appHandler global defined", "text/plain")
-                end
-            end
-
-
-            client:send(response, function(client)
-                    client:close();
-                    collectgarbage();
-                end);
-        end)
-    end)
-    log("HTTP server started on port 80")
-end
-
 local function waitIfExcBoot(fun)
     local _, reset_reason = node.bootreason()
     if(reset_reason == 3)then
@@ -105,14 +48,21 @@ end
 end
 
 local function boot()
+    --compileAndRemoveIfNeeded('mqttReporter.lua') 
+    --dofile("mqttReporter.lc")
+    require "mqttReporter"
+    mqttReporter.connect("mosquitto", function()
+        log("Connected to MQTT broker")
+    end)
+
+    compileAndRemoveIfNeeded("loadFirmware.lua")
+    dofile("loadFirmware.lc")
     compileAndRemoveIfNeeded("http.lua")
     dofile("http.lc")
     compileAndRemoveIfNeeded('log.lua') 
     dofile("log.lc")
-    compileAndRemoveIfNeeded('loadFirmware.lua') 
-    dofile("loadFirmware.lc")
+
     initLogSystem()
-    startServer()
     waitIfExcBoot(function()
         if file.exists("app.lua") then
             log("Loading app.lua")

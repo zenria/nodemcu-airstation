@@ -64,15 +64,27 @@ local function divBy10ToString(n)
 	return int.."."..dec
 end
 
+local startIdx = 20
 local i = 0
 
+local meanPM25 = 0
+local meanPM10 = 0
+
+local function incrMean(m, n, x)
+	return (m * n + x) / (n + 1)
+end
+
 local function handleData(dataBuffer)
-	_PM25 = divBy10ToString(to16BitsInteger(dataBuffer:byte(4), dataBuffer:byte(3)))
-	_PM10 = divBy10ToString(to16BitsInteger(dataBuffer:byte(6), dataBuffer:byte(5)))
+	_PM25 = to16BitsInteger(dataBuffer:byte(4), dataBuffer:byte(3))/10
+	_PM10 = to16BitsInteger(dataBuffer:byte(6), dataBuffer:byte(5))/10
 	if (i%5) == 0 then 
 		log("Read data: PM2.5= ".._PM25.." PM10= ".._PM10.."heapFree:"..node.heap())
 	end
 	i = i + 1
+	if i >= startIdx then
+		meanPM10 = incrMean(meanPM10, i - startIdx , _PM10)
+		meanPM25 = incrMean(meanPM25, i - startIdx , _PM25)
+	end
 end
 
 local function handleReply(dataBuffer)
@@ -196,44 +208,28 @@ local function commandOK()
 	return createResponse(200, "Command OK", "text/plain")
 end
 
-
-function appHandler(path, params)
-    local response = nil
-    if (path == "/" and PM25 == nil) then
-        response = createResponse("503 NOT AVAILABLE", "SDS021 not booted", "text/plain")
-    elseif(path == "/")then
-        jsonValue = {
-            PM25 = PM25,
-            PM10 = PM10
-        }
-        json = cjson.encode(jsonValue)
-        if(json)then
-            response = createResponse(200, json, "application/json")
-        else
-            response = createResponse(500, "Cannot encode json", "text/plain")
-        end
-    elseif(path == "/reboot") then
-        node.reboot()
-    else
-        response = createResponse("404 NOT FOUND", "Not found", "text/plain")
-    end
-    return response
-end
-
+local function sendValues()
+	mqttReporter.sendValue("/PM2.5", string.format("%.2f", PM25))
+	mqttReporter.sendValue("/PM10", string.format("%.2f", PM10))
+end 
 
 function runMode()
-	wait(10000, function()			
+	i=0 
+	wait(30000, function()			
 		log("Sleep")
  		setAwake(false)
- 		PM25 = _PM25
- 		PM10 = _PM10
+ 		PM25 = meanPM25
+ 		PM10 = meanPM10
+ 		sendValues()
 	end)
 	wait(240000, function(gTimer)
 		log("Wake up")
 		setAwake(true)
+		i=0 
 		wait(30000, function()
-	 		PM25 = _PM25
-	 		PM10 = _PM10
+	 		PM25 = meanPM25
+	 		PM10 = meanPM10
+	 		sendValues()
 			log("Sleep")
 			setAwake(false)
 			gTimer:start()
