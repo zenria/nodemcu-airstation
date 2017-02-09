@@ -21,22 +21,12 @@ end
 
 function mqttReporter.connect(host, callback)
 	local statusTopic = getTopic("/status")
-	local execTopic = getTopic("/exec")
 	client = mqtt.Client(clientId, 120)
 	-- will go offline if disconnected
 	client:lwt(statusTopic, STATUS_OFFLINE, 0, true)
-
-	-- exec topic
-	client:on("message", function(client, topic, data) 
-        print("Topic:"..topic)
-        print("Data: "..data)
-		if(topic == execTopic)then
-			node.input(data)
-		end
-  	end)
-
-    print("Connecting to "..host)
+    print("MQTT - Connecting to "..host)
 	client:connect(host, 1883, function(c)
+		print("MQTT - Connected")
 		-- set online
 		c:publish(statusTopic, STATUS_ONLINE, 0, 0)
 		-- setup heap reporter
@@ -45,9 +35,6 @@ function mqttReporter.connect(host, callback)
 	    timer:start()
 	    -- report heap now
 	    sendHeap()
-	    -- setup exec topic
-	    c:subscribe(execTopic, 1)
-
 		if callback then
 			callback()
 		end
