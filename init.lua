@@ -47,6 +47,15 @@ end
 
 end
 
+function wait(millis, callback)
+    local timer = tmr.create()
+    timer:register(millis, tmr.ALARM_SEMI, function()
+        callback(timer)
+    end)
+    timer:start()
+end
+
+
 local function boot()
     --compileAndRemoveIfNeeded('mqttReporter.lua') 
     --dofile("mqttReporter.lc")
@@ -55,8 +64,6 @@ local function boot()
         log("Connected to MQTT broker")
     end)
 
-    compileAndRemoveIfNeeded("loadFirmware.lua")
-    dofile("loadFirmware.lc")
     compileAndRemoveIfNeeded("http.lua")
     dofile("http.lc")
     compileAndRemoveIfNeeded('log.lua') 
@@ -64,10 +71,31 @@ local function boot()
 
     initLogSystem()
     waitIfExcBoot(function()
-        if file.exists("app.lua") then
-            log("Loading app.lua")
-            dofile("app.lua")
+        local loadLocal = true
+        if not(firmwareHost==nil) then
+            local url = "http://"..firmwareHost.."/"..wifi.sta.getmac().."/app.lua"
+            print("Try to load firmware from "..url)
+            httpGet(url, function(statusCode,response)
+                if(statusCode == 200) then
+                    loadLocal = false
+                    log("Writing app.lua to flash from "..url)
+                    file.remove("app.lua")
+                    file.remove("app.lc")
+                    file.open("app.lua", "w+")
+                    file.write(response)
+                    file.close()
+                    dofile("app.lua")
+                    log("Firmware loaded successfully")
+                end
+            end)
         end
+
+        wait(10000, function()
+            if loadLocal and file.exists("app.lua") then
+                log("Loading app.lua")
+                dofile("app.lua")
+            end
+        end)
     end)
 end
 
