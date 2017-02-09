@@ -130,15 +130,6 @@ local function readData(buffer)
 	log("Invalid command "..toHexString(buffer))
 end
 
-local function wait(millis, callback)
-	local timer = tmr.create()
-	timer:register(millis, tmr.ALARM_SEMI, function()
-		callback(timer)
-	end)
-	timer:start()
-end
-
-
 function setupSerial()
 	uart.alt(1)
 	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
