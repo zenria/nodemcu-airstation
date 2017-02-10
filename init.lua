@@ -57,9 +57,9 @@ end
 
 
 local function boot()
-    --compileAndRemoveIfNeeded('mqttReporter.lua') 
-    --dofile("mqttReporter.lc")
-    require "mqttReporter"
+    compileAndRemoveIfNeeded('mqttReporter.lua') 
+    dofile("mqttReporter.lc")
+    --require "mqttReporter"
     mqttReporter.connect("mosquitto", function()
         log("Connected to MQTT broker")
     end)
@@ -84,8 +84,12 @@ local function boot()
                     file.open("app.lua", "w+")
                     file.write(response)
                     file.close()
-                    dofile("app.lua")
-                    log("Firmware loaded successfully")
+                    response=nil
+                    node.task.post(0,function()
+                        compileAndRemoveIfNeeded("app.lua")
+                        dofile("app.lc")
+                        log("Firmware loaded successfully")
+                    end)
                 end
             end)
         end

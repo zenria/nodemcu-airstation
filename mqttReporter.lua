@@ -1,4 +1,4 @@
-local mqttReporter = {}
+mqttReporter = {}
 
 local clientId = "nodemcu_"..wifi.sta.getmac()
 
@@ -47,4 +47,4 @@ function mqttReporter.sendValue(path, value)
 	client:publish(getTopic(path), value, 0, 0)
 end
 
-return mqttReporter
+--return mqttReporter

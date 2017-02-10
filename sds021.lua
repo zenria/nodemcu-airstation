@@ -202,6 +202,7 @@ end
 local function sendValues()
 	mqttReporter.sendValue("/PM2.5", string.format("%.2f", PM25))
 	mqttReporter.sendValue("/PM10", string.format("%.2f", PM10))
+    log("Sending PM2.5="..string.format("%.2f", PM25).." PM10="..string.format("%.2f", PM10))
 end 
 
 function runMode()
