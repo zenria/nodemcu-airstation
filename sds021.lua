@@ -218,13 +218,14 @@ function runMode()
 		log("Wake up")
 		setAwake(true)
 		i=0 
-		wait(30000, function()
+		wait(30000, function(wTimer)
 	 		PM25 = meanPM25
 	 		PM10 = meanPM10
 	 		sendValues()
 			log("Sleep")
 			setAwake(false)
 			gTimer:start()
+			wTimer:unregister()
 			collectgarbage()
 		end)
 	end)
