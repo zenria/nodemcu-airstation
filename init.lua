@@ -96,8 +96,11 @@ local function boot()
 
         wait(10000, function()
             if loadLocal and file.exists("app.lua") then
-                log("Loading app.lua")
-                dofile("app.lua")
+                compileAndRemoveIfNeeded("app.lua")
+            end
+            if loadLocal and file.exists("app.lc") then
+                log("Loading local app")
+                dofile("app.lc")
             end
         end)
     end)
