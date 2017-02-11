@@ -33,9 +33,8 @@ local function logStatus()
     log("heapFree:"..node.heap())
 end
 
-
-
 local function app() 
+    log("Loaded DHT22 APP")
     local n = 1
     wait(10000, function(timer)
         readDht()

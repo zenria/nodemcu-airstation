@@ -21,14 +21,24 @@ end
 
 function mqttReporter.connect(host, callback)
 	local statusTopic = getTopic("/status")
+    local rpcTopic = getTopic("/exec")
 	client = mqtt.Client(clientId, 120)
 	-- will go offline if disconnected
 	client:lwt(statusTopic, STATUS_OFFLINE, 0, true)
+
+    client:on("message", function(client, topic, data) 
+        if topic == rpcTopic then
+            node.input(data)
+        end
+    end)
+    
     print("MQTT - Connecting to "..host)
 	client:connect(host, 1883, function(c)
 		print("MQTT - Connected")
 		-- set online
 		c:publish(statusTopic, STATUS_ONLINE, 0, 0)
+        -- subscribe to rcp topic
+        c:subscribe(rpcTopic, 2)
 		-- setup heap reporter
 		local timer = tmr.create()
 		timer:register(120000, tmr.ALARM_AUTO, sendHeap)

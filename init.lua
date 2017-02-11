@@ -55,6 +55,7 @@ function wait(millis, callback)
     timer:start()
 end
 
+local loadLocal = true
 
 local function boot()
     compileAndRemoveIfNeeded('mqttReporter.lua') 
@@ -71,29 +72,6 @@ local function boot()
 
     initLogSystem()
     waitIfExcBoot(function()
-        local loadLocal = true
-        if not(firmwareHost==nil) then
-            local url = "http://"..firmwareHost.."/"..wifi.sta.getmac().."/app.lua"
-            print("Try to load firmware from "..url)
-            httpGet(url, function(statusCode,response)
-                if(statusCode == 200) then
-                    loadLocal = false
-                    log("Writing app.lua to flash from "..url)
-                    file.remove("app.lua")
-                    file.remove("app.lc")
-                    file.open("app.lua", "w+")
-                    file.write(response)
-                    file.close()
-                    response=nil
-                    node.task.post(0,function()
-                        compileAndRemoveIfNeeded("app.lua")
-                        dofile("app.lc")
-                        log("Firmware loaded successfully")
-                    end)
-                end
-            end)
-        end
-
         wait(10000, function()
             if loadLocal and file.exists("app.lua") then
                 compileAndRemoveIfNeeded("app.lua")
@@ -113,3 +91,30 @@ waitIfExcBoot(function()
     end)
 end)
 
+function loadFirmware(fileToLoad)
+    if(fileToLoad==nil)then
+        fileToLoad = "app"
+    end
+    if not(firmwareHost==nil) then
+        local url = "http://"..firmwareHost.."/"..wifi.sta.getmac().."/"..fileToLoad..".lua"
+        log("Try to load firmware from "..url)
+        httpGet(url, function(statusCode,response)
+            if(statusCode == 200) then
+                loadLocal = false
+                log("Writing "..fileToLoad..".lua to flash from "..url)
+                file.remove(fileToLoad..".lua")
+                file.remove(fileToLoad..".lc")
+                file.open(fileToLoad..".lua", "w+")
+                file.write(response)
+                file.close()
+                node.restart()
+                --response=nil
+                --node.task.post(0,function()
+                --    compileAndRemoveIfNeeded("app.lua")
+                --    dofile("app.lc")
+                --    log("Firmware loaded successfully")
+                --end)
+            end
+        end)
+    end
+end
