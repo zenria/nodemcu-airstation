@@ -6,6 +6,8 @@ local rootTopic = "nodemcu/"..wifi.sta.getmac()
 
 local client = nil
 
+print("MQTT - root topic: "..rootTopic)
+
 local function getTopic(path)
 	return rootTopic..path
 end
