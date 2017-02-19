@@ -1,6 +1,6 @@
 print("Connecting to wifi...")
 
-local compileAndRemoveIfNeeded = function(f)
+compileAndRemoveIfNeeded = function(f)
    if file.open(f) then
       file.close()
       print('Compiling:', f)
@@ -12,13 +12,19 @@ end
 
 compileAndRemoveIfNeeded("setupWifi.lua")
 dofile("setupWifi.lc")
+if file.exists("app-list.lua") then
+    compileAndRemoveIfNeeded("app-list.lua")    
+end
+if file.exists("app-list.lc") then
+    dofile("app-list.lc")
+end
 
 local function waitForWifi(callback)
+    print("Waiting for an IP address!") 
     local timer = tmr.create()
     timer:register(500, tmr.ALARM_SEMI, 
     function()
         if wifi.sta.getip()==nil then
-            print("Waiting for an IP address!") 
             timer:start()
         else
             timer=nil
@@ -59,26 +65,41 @@ local loadLocal = true
 
 local function boot()
     compileAndRemoveIfNeeded('mqttReporter.lua') 
+    compileAndRemoveIfNeeded("http.lua")
+    compileAndRemoveIfNeeded('log.lua') 
+
+    if apps == nil then
+        apps = {"app"}
+    end
+
+    for k,v in pairs(apps) do
+        local fileName = v..".lua"
+        if file.exists(fileName) then
+            compileAndRemoveIfNeeded(fileName)
+        end
+    end
+
     dofile("mqttReporter.lc")
     --require "mqttReporter"
     mqttReporter.connect("mosquitto", function()
         log("Connected to MQTT broker")
     end)
-
-    compileAndRemoveIfNeeded("http.lua")
     dofile("http.lc")
-    compileAndRemoveIfNeeded('log.lua') 
     dofile("log.lc")
-
     initLogSystem()
+
     waitIfExcBoot(function()
         wait(10000, function()
-            if loadLocal and file.exists("app.lua") then
-                compileAndRemoveIfNeeded("app.lua")
-            end
-            if loadLocal and file.exists("app.lc") then
-                log("Loading local app")
-                dofile("app.lc")
+            if loadLocal  then
+                for k,v in pairs(apps) do
+                    local fileName = v..".lc"
+                    if file.exists(fileName) then
+                        log("Loading "..fileName)
+                        dofile(fileName)
+                    else
+                        print("App not found - "..v)
+                    end
+                end
             end
         end)
     end)
