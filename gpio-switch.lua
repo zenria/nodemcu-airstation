@@ -19,3 +19,12 @@ function gpiosw.setup(pin)
 end
 
 gpiosw.setup(1)
+gpiosw.setup(2)
+gpiosw.setup(3)
+--gpiosw.setup(4)
+gpiosw.setup(5)
+gpiosw.setup(6)
+gpiosw.setup(7)
+--gpiosw.setup(8)
+--gpiosw.setup(9)
+--gpiosw.setup(10)
