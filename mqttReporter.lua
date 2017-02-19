@@ -17,6 +17,10 @@ local STATUS_OFFLINE = "0"
 
 local function sendHeap()
 	mqttReporter.sendValue("/heapFree", node.heap())
+    if(initVersion) then
+        mqttReporter.sendValue("/initVersion", initVersion)
+    end
+    
 end
 
 local reconnect = nil
@@ -40,7 +44,7 @@ function mqttReporter.connect(host, callback)
 	    
 	    log("MQTT - Connecting to "..host)
 		client:connect(host, 1883, function(c)
-			log("MQTT - Connected")
+			log("MQTT - Connected as "..rootTopic)
 			-- set online
 			c:publish(statusTopic, STATUS_ONLINE, 0, 0)
 	        -- subscribe to rcp topic

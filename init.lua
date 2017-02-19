@@ -1,3 +1,5 @@
+initVersion = "1.0"
+
 print("Connecting to wifi...")
 
 compileAndRemoveIfNeeded = function(f)
@@ -27,6 +29,7 @@ local function waitForWifi(callback)
         if wifi.sta.getip()==nil then
             timer:start()
         else
+            timer:unregister()
             timer=nil
             print("Got an IP address: "..wifi.sta.getip())
             collectgarbage()
@@ -97,7 +100,7 @@ local function boot()
                         log("Loading "..fileName)
                         dofile(fileName)
                     else
-                        print("App not found - "..v)
+                        log("App not found - "..v)
                     end
                 end
             end
