@@ -58,9 +58,6 @@ local function divBy10ToString(n)
 	local dec = n % 10
 	local round = n - dec
 	local int = round / 10
-	if not(math==nil) then
-		int = math.floor(int)
-	end
 	return int.."."..dec
 end
 
@@ -86,10 +83,6 @@ local function handleData(dataBuffer)
 		meanPM25 = incrMean(meanPM25, i - startIdx , _PM25)
 	end
 end
-
-local function handleReply(dataBuffer)
-	log("Reply: "..toHexString(dataBuffer))
-end	
 
 local function readData(buffer)
 	
@@ -124,18 +117,12 @@ local function readData(buffer)
 		return
 	end
 	if command == CMD_Reply then
-		handleReply(dataBuffer)
+		log("Reply: "..toHexString(dataBuffer))
 		return
 	end
 	log("Invalid command "..toHexString(buffer))
 end
 
-function setupSerial()
-	uart.alt(1)
-	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
-	uart.on("data", string.char(MSG_Tail), readData, 0)
-	log("UART set up")
-end
 
 local function makeMessage(action, set, address)
 	address = 0xFFFF
@@ -176,27 +163,12 @@ local function packMessage(msg)
 	return ret
 end
 
-
-local function sendMessage(msg)
-    --log("Want to send. "..toHexString(packMessage(msg)))
-    uart.write(0,packMessage(msg))
-end
-
-local function makeSetAwakeMessage(working)
-	local ret = makeMessage(ACTION_State, true, ID)
-	if working then
-		ret[5] = 0x01
-	end
-	return ret
-end
-
 function setAwake(working)
-	sendMessage(makeSetAwakeMessage(working))
-end
-
-
-local function commandOK()
-	return createResponse(200, "Command OK", "text/plain")
+	local msg = makeMessage(ACTION_State, true, ID)
+	if working then
+		msg[5] = 0x01
+	end
+	uart.write(0,packMessage(msg))
 end
 
 local function sendValues()
@@ -205,14 +177,22 @@ local function sendValues()
     log("Sending PM2.5="..string.format("%.2f", PM25).." PM10="..string.format("%.2f", PM10))
 end 
 
-function runMode()
+--function sds021app()
+	-- setup uart
+	uart.alt(1)
+	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
+	uart.on("data", string.char(MSG_Tail), readData, 0)
+	log("UART set up")
+
+	-- launch loops
 	i=0 
-	wait(30000, function()			
+	wait(30000, function(timer)			
 		log("Sleep")
  		setAwake(false)
  		PM25 = meanPM25
  		PM10 = meanPM10
  		sendValues()
+ 		timer:unregister()
 	end)
 	wait(240000, function(gTimer)
 		log("Wake up")
@@ -229,10 +209,6 @@ function runMode()
 			collectgarbage()
 		end)
 	end)
-end
-
-function app()
-    setupSerial()
-	runMode()
-end
-app()
+	log("Launched SDS021 app")
+--end
+--sds021app()
