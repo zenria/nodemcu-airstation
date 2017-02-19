@@ -4,16 +4,7 @@ local dhtPin = 5
 
 local function readDht()    
     status,temp,humi,temp_decimal,humi_decimal = dht.read(dhtPin)
-    --local sign=""
-    --if(temp_decimal<0) then
-    --    if(temp>=0)then
-    --        sign="-"
-    --    end
-    --    temp_decimal = 0 - temp_decimal
-    --end
     if( status == dht.OK ) then
-        --dhtTemperature = sign..temp.."."..temp_decimal
-        --dhtHumidity = humi.."."..humi_decimal
         dhtTemperature = temp
         dhtHumidity = humi
     elseif( status == dht.ERROR_CHECKSUM ) then
@@ -33,8 +24,7 @@ local function logStatus()
     log("heapFree:"..node.heap())
 end
 
-local function app() 
-    log("Loaded DHT22 APP")
+local function dht22app() 
     local n = 1
     wait(10000, function(timer)
         readDht()
@@ -46,6 +36,8 @@ local function app()
         end
         timer:start()
     end)
+    log("Loaded DHT22 APP")
 end
-
-app()
+if automaticLaunchApp == nil or automaticLaunchApp then
+    dht22app()
+end
