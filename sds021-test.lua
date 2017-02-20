@@ -11,35 +11,50 @@ local function assertEquals(message, v, t)
 		return
 	end
 	print(message.." - FAIL expected:"..v.." got:"..t)
+	die()
 end
 
-local function doTest(testData, _PM25, _PM10)
+local function doTest(testData, _PM25, _PM10, _meanPM25, _meanPM10)
 	sds021.resetValues()
 	PM25, PM10, meanPM25, meanPM10 = sds021.readData(testData)
 	assertEquals("PM25", _PM25, PM25)
 	assertEquals("PM10", _PM10, PM10)
-	assertEquals("meanPM25", 0, meanPM25)
-	assertEquals("meanPM10", 0, meanPM10)
+	assertEquals("meanPM25", _meanPM25, meanPM25)
+	assertEquals("meanPM10", _meanPM10, meanPM10)
 end
 
-doTest(testData1, 11.5, 15.8)
-doTest(testData2, 10.0, 10.6)
+print("----------- OPTIMAL data")
+doTest(testData1, 11.5, 15.8, 0, 0)
+doTest(testData2, 10.0, 10.6, 0, 0)
+print("----------- DOUBLE data (aligned)")
 doTest(string.char(
 	0xAA,0xC0,0x64,0x00,0x6A,0x00,0xAB,0xA6,0x1F,0xAB,
 	0xAA,0xC0,0x64,0x00,0x6A,0x00,0xAB,0xA6,0x1F,0xAB)
-	, 10.0, 10.6)
+	, 10.0, 10.6, 0, 0)
 
+print("----------- DOUBLE data (wrapped)")
 doTest(string.char(
 	0xC0,0x64,0x00,0x6A,0x00,0xAB,0xA6,0x1F,0xAB,
 	0xAA,0xC0,0x64,0x00,0x6A,0x00,0xAB,0xA6,0x1F,0xAB, 0xAA)
-	, 10.0, 10.6)
+	, 10.0, 10.6, 0, 0)
 
--- corrupt head
+print("----------- CORRUPT HEAD ")
 doTest(string.char(
 	0xAA,0xAA,0x00,0x6A,0x00,0xAB,0xA6,0x1F,0xAB,
 	0xAA,0xC0,0x64,0x00,0x6A,0x00,0xAB,0xA6,0x1F,0xAB, 0xAA)
-	, 10.0, 10.6)
+	, 10.0, 10.6, 0, 0)
+print("----------- CORRUPT HEAD (endswith tail)")
 doTest(string.char(
 	0xAA,0xAA,0x00,0x6A,0x00,0xAB,0xA6,0x1F,0xAB,
 	0xAA,0xC0,0x64,0x00,0x6A,0x00,0xAB,0xA6,0x1F,0xAB)
-	, 10.0, 10.6)
+	, 10.0, 10.6, 0, 0)
+
+print("----------- CORRUPT DATA ")
+doTest("", nil, nil, nil, nil)
+doTest(string.char(0xAA), nil, nil, nil, nil)
+doTest(string.char(0xAB), nil, nil, nil, nil)
+doTest(string.char(0xAA, 0xAA), nil, nil, nil, nil)
+doTest(string.char(0xAA, 0xAB), nil, nil, nil, nil)
+doTest(string.char(0xAB, 0xAB), nil, nil, nil, nil)
+doTest(string.char(0xAA,1,2,4,5,6,7,8,10,0xAB), nil, nil, nil, nil)
+

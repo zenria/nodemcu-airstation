@@ -73,6 +73,9 @@ function M.handleData(dataBuffer)
 	end
 	i = i + 1
 	if i >= startIdx then
+		if(i==startIdx)then
+			log("Starting computing mean")
+		end
 		meanPM10 = incrMean(meanPM10, i - startIdx , _PM10)
 		meanPM25 = incrMean(meanPM25, i - startIdx , _PM25)
 	end
@@ -94,7 +97,7 @@ function M.readData(buffer)
 		return 
 	end
 	if #buffer + start - 1 < M.InputLength then 
-		log("Buffer too small"..toHexString(buffer))
+		log("Buffer too small "..toHexString(buffer))
 		return 
 	end
 	local dataBuffer = buffer:sub(start,start+M.InputLength)
@@ -102,10 +105,11 @@ function M.readData(buffer)
 		if #buffer - start +1 >= M.InputLength then
 			return M.readData(buffer:sub(start+1, #buffer))
 		end
-		log("No tail found"..toHexString(buffer))
+		log("No tail found "..toHexString(buffer))
 	end
 	if not validChecksum(dataBuffer) then
-		log("Invalid checksum"..toHexString(buffer))
+		log("Invalid checksum "..toHexString(buffer))
+		return
 	end
 	-- update id
 	ID = to16BitsInteger(buffer:byte(8), buffer:byte(9))
