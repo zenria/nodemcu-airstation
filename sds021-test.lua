@@ -13,14 +13,26 @@ local function assertEquals(message, v, t)
 	print(message.." - FAIL expected:"..v.." got:"..t)
 	die()
 end
+local function toHexString(buffer)
+	local i
+	local str = ""
+	for i=1,#buffer do
+		str = str..string.format("%02X ", buffer:byte(i))
+	end
+	return str
+end	
 
-local function doTest(testData, _PM25, _PM10, _meanPM25, _meanPM10)
-	sds021.resetValues()
-	PM25, PM10, meanPM25, meanPM10 = sds021.readData(testData)
+local function doTest(testData, _PM25, _PM10)
+	local PM25,PM10,error
+	sds021.on("data", function(__PM25, __PM10)
+		PM25 = __PM25
+		PM10 = __PM10
+		print("PM25="..PM25)
+		print("PM10="..PM25)
+	end)
+	sds021.readData(testData)
 	assertEquals("PM25", _PM25, PM25)
 	assertEquals("PM10", _PM10, PM10)
-	assertEquals("meanPM25", _meanPM25, meanPM25)
-	assertEquals("meanPM10", _meanPM10, meanPM10)
 end
 
 print("----------- OPTIMAL data")
@@ -58,3 +70,10 @@ doTest(string.char(0xAA, 0xAB), nil, nil, nil, nil)
 doTest(string.char(0xAB, 0xAB), nil, nil, nil, nil)
 doTest(string.char(0xAA,1,2,4,5,6,7,8,10,0xAB), nil, nil, nil, nil)
 
+
+print("----------- Set awake ")
+sds021.on("uartwrite", function(id, buffer)
+	print("UART WRITE: "..toHexString(buffer))
+end)
+sds021.setAwake(true)
+sds021.setAwake(false)

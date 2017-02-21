@@ -14,7 +14,21 @@ local ACTION_Interval = 0x8
 
 M.InputLength = 10
 
+M.E_CHECKSUM = 1
+M.E_NOTAIL = 2
+M.E_NOHEAD = 3
+M.E_BUFTOOSMALL = 4
+M.E_INVALIDCMD = 5
+M.ERROR_MSG = {}
+M.ERROR_MSG[M.E_CHECKSUM] = "Invalid checksum"
+M.ERROR_MSG[M.E_NOTAIL] = "No tail"
+M.ERROR_MSG[M.E_NOHEAD] = "No head"
+M.ERROR_MSG[M.E_BUFTOOSMALL] = "Buffer too small"
+M.ERROR_MSG[M.E_INVALIDCMD] = "Invalid command"
+
+
 local ID = nil
+
 
 local function to16BitsInteger(h,l)
 	return bit.lshift(h, 8) + l
@@ -42,6 +56,37 @@ local function toHexString(buffer)
 	return str
 end	
 
+local onDataReadCallback = function(PM25, PM10)
+	log("Read data: PM2.5=".._PM25.." PM10=".._PM10.." heapFree:"..node.heap())
+end
+
+local onReplyCallback = function(buffer)
+	log("Reply: "..toHexString(buffer))
+end
+
+local onErrorCallback = function(errorCode, buffer)
+	log("Error "..M.ERROR_MSG[errorCode].." -- "..toHexString(buffer))	
+end
+
+local uartWrite = nil;
+if uart then
+	uartWrite = uart.write
+end
+
+
+function M.on(name, callback)
+	if name == "data" then
+		onDataReadCallback = callback
+	elseif name == "reply" then
+		onReplyCallback = callback
+	elseif name == "error" then
+		onErrorCallback = callback
+	elseif name == "uartwrite" then
+		uartWrite = callback;
+	end
+end
+
+
 function M.divBy10ToString(n)
 	local dec = n % 10
 	local round = n - dec
@@ -49,41 +94,10 @@ function M.divBy10ToString(n)
 	return int.."."..dec
 end
 
-local startIdx = 20
-local i = 0
 
-local meanPM25 = 0
-local meanPM10 = 0
 
-function M.resetValues()
-	meanPM10 = 0
-	meanPM25 = 0
-	i = 0
-end
-
-function M.incrMean(m, n, x)
-	return (m * n + x) / (n + 1)
-end
-
-function M.handleData(dataBuffer)
-	local _PM25 = to16BitsInteger(dataBuffer:byte(4), dataBuffer:byte(3))/10
-	local _PM10 = to16BitsInteger(dataBuffer:byte(6), dataBuffer:byte(5))/10
-	if (i%5) == 0 then 
-		log("Read data: PM2.5=".._PM25.." PM10=".._PM10.." heapFree:"..node.heap())
-	end
-	i = i + 1
-	if i >= startIdx then
-		if(i==startIdx)then
-			log("Starting computing mean")
-		end
-		meanPM10 = incrMean(meanPM10, i - startIdx , _PM10)
-		meanPM25 = incrMean(meanPM25, i - startIdx , _PM25)
-	end
-	return _PM25, _PM10, meanPM25, meanPM10
-end
 
 function M.readData(buffer)
-	
 	local start = 0
 	local i
 	for i=1,#buffer do
@@ -93,35 +107,41 @@ function M.readData(buffer)
 		end
 	end
 	if start == 0 then 
-		log("No head found "..toHexString(buffer))
+		onErrorCallback(M.E_NOHEAD, buffer)
 		return 
 	end
 	if #buffer + start - 1 < M.InputLength then 
-		log("Buffer too small "..toHexString(buffer))
+		onErrorCallback(M.E_BUFTOOSMALL, buffer)
 		return 
 	end
 	local dataBuffer = buffer:sub(start,start+M.InputLength)
 	if not(dataBuffer:byte(M.InputLength) == MSG_Tail) then
-		if #buffer - start +1 >= M.InputLength then
-			return M.readData(buffer:sub(start+1, #buffer))
+		if #buffer - start + 1 >= M.InputLength then
+			M.readData(buffer:sub(start+1, #buffer))
 		end
-		log("No tail found "..toHexString(buffer))
+		onErrorCallback(M.E_NOTAIL, buffer)
+		return
 	end
 	if not validChecksum(dataBuffer) then
-		log("Invalid checksum "..toHexString(buffer))
+		onErrorCallback(M.E_CHECKSUM, buffer)
 		return
 	end
 	-- update id
 	ID = to16BitsInteger(buffer:byte(8), buffer:byte(9))
 	local command = dataBuffer:byte(2)
 	if command==CMD_Data then
-		return M.handleData(dataBuffer)
+		local _PM25 = to16BitsInteger(dataBuffer:byte(4), dataBuffer:byte(3))/10
+		local _PM10 = to16BitsInteger(dataBuffer:byte(6), dataBuffer:byte(5))/10
+		onDataReadCallback(_PM25, _PM10)
+		return
+		-- meanPM10 = incrMean(meanPM10, i - startIdx , _PM10)
+		-- meanPM25 = incrMean(meanPM25, i - startIdx , _PM25)
 	end
 	if command == CMD_Reply then
-		log("Reply: "..toHexString(dataBuffer))
+		onReplyCallback(dataBuffer)
 		return
 	end
-	log("Invalid command "..toHexString(buffer))
+	onErrorCallback(M.E_INVALIDCMD, dataBuffer)
 end
 
 
@@ -169,7 +189,7 @@ function M.setAwake(working)
 	if working then
 		msg[5] = 0x01
 	end
-	uart.write(0,packMessage(msg))
+	uartWrite(0,M.packMessage(msg))
 end
 
 return M
