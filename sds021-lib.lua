@@ -13,7 +13,7 @@ local Version = 0x7
 local ACTION_Interval = 0x8
 
 M.InputLength = 10
-
+M.MSG_Tail = MSG_Tail
 M.E_CHECKSUM = 1
 M.E_NOTAIL = 2
 M.E_NOHEAD = 3
@@ -95,9 +95,16 @@ function M.divBy10ToString(n)
 end
 
 
+local incompleteBuffer = nil
 
+function M.resetInternalBuffer()
+	incompleteBuffer = nil
+end
 
-function M.readData(buffer)
+function M.readData(buffer, partialBuffer)
+	if incompleteBuffer and not partialBuffer then
+		buffer = incompleteBuffer..buffer
+	end
 	local start = 0
 	local i
 	for i=1,#buffer do
@@ -111,16 +118,24 @@ function M.readData(buffer)
 		return 
 	end
 	if #buffer + start - 1 < M.InputLength then 
-		onErrorCallback(M.E_BUFTOOSMALL, buffer)
+		--onErrorCallback(M.E_BUFTOOSMALL, buffer)
+		incompleteBuffer = buffer
 		return 
 	end
 	local dataBuffer = buffer:sub(start,start+M.InputLength)
 	if not(dataBuffer:byte(M.InputLength) == MSG_Tail) then
 		if #buffer - start + 1 >= M.InputLength then
-			M.readData(buffer:sub(start+1, #buffer))
+			M.readData(buffer:sub(start+1, #buffer), true)
 		end
-		onErrorCallback(M.E_NOTAIL, buffer)
+		incompleteBuffer = buffer
+		-- onErrorCallback(M.E_NOTAIL, buffer)
 		return
+	end
+	-- we may have found complete frame, let reset the buffer to the end of this frame
+	if #buffer - start + 1 >  M.InputLength then
+		incompleteBuffer = buffer:sub(start+1, #buffer)
+	else
+		incompleteBuffer = nil
 	end
 	if not validChecksum(dataBuffer) then
 		onErrorCallback(M.E_CHECKSUM, buffer)
@@ -133,15 +148,14 @@ function M.readData(buffer)
 		local _PM25 = to16BitsInteger(dataBuffer:byte(4), dataBuffer:byte(3))/10
 		local _PM10 = to16BitsInteger(dataBuffer:byte(6), dataBuffer:byte(5))/10
 		onDataReadCallback(_PM25, _PM10)
-		return
-		-- meanPM10 = incrMean(meanPM10, i - startIdx , _PM10)
-		-- meanPM25 = incrMean(meanPM25, i - startIdx , _PM25)
-	end
-	if command == CMD_Reply then
+	elseif command == CMD_Reply then
 		onReplyCallback(dataBuffer)
-		return
+	else
+		onErrorCallback(M.E_INVALIDCMD, dataBuffer)
 	end
-	onErrorCallback(M.E_INVALIDCMD, dataBuffer)
+	if incompleteBuffer then 
+		M.readData("")
+	end
 end
 
 

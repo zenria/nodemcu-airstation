@@ -36,10 +36,10 @@ function sds021app()
 	-- setup uart
 	uart.alt(1)
 	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
-	--uart.on("data", string.char(MSG_Tail), readData, 0)
 
 	sds021.on("data", dataCallback)
-    uart.on("data", sds021.InputLength * 2, sds021.readData, 0)
+	uart.on("data", string.char(sds021.MSG_Tail), sds021.readData, 0)
+    --uart.on("data", sds021.InputLength * 2, sds021.readData, 0)
 	log("UART set up")
 
 	-- launch loops
