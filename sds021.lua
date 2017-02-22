@@ -1,7 +1,7 @@
 local sds021 = require "sds021-lib"
 
 local meanPM25=0
-local meanPM25=0
+local meanPM10=0
 
 local function sendValues(PM25, PM10)
 	mqttReporter.sendValue("/PM2.5", string.format("%.2f", PM25))
@@ -10,7 +10,7 @@ local function sendValues(PM25, PM10)
 end 
 
 local i=0
-local startIdx=10
+local startIdx=20
 
 local function incrMean(m, n, x)
 	return (m * n + x) / (n + 1)
@@ -27,7 +27,7 @@ local function dataCallback(PM25, PM10)
 			log("Start computing mean")
 		end
 		meanPM25 = incrMean(meanPM25, i - startIdx, PM25)
-		meanPM10 = incrMean(meanPM25, i - startIdx, PM25)
+		meanPM10 = incrMean(meanPM10, i - startIdx, PM10)
 	end
 end
 
